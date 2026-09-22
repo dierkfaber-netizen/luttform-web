@@ -1,0 +1,36 @@
+@import 'tailwindcss';
+
+@font-face {
+  font-family: 'Instrument Sans:Bold';
+  font-style: normal;
+  font-weight: 700;
+  src: url('https://static.figma.com/font/InstrumentSans_wdth_wght__1') format('woff2');
+}
+
+@font-face {
+  font-family: 'Instrument Sans:Regular';
+  font-style: normal;
+  font-weight: 400;
+  src: url('https://static.figma.com/font/InstrumentSans_wdth_wght__1') format('woff2');
+}
+
+@font-face {
+  font-family: 'Instrument Sans:SemiBold';
+  font-style: normal;
+  font-weight: 600;
+  src: url('https://static.figma.com/font/InstrumentSans_wdth_wght__1') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter:Regular';
+  font-style: normal;
+  font-weight: 400;
+  src: url('https://static.figma.com/font/Inter_1') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter:Semi Bold';
+  font-style: normal;
+  font-weight: 600;
+  src: url('https://static.figma.com/font/Inter_1') format('woff2');
+}
