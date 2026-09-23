@@ -4,12 +4,12 @@ import { useForm, ValidationError } from '@formspree/react';
 // ---------------------------------------------------------------------------
 // Images
 // ---------------------------------------------------------------------------
-const imgHero = '/images/luettform-extra.png';           // Gesamtansicht schräg oben
-const imgVorherNachher = '/images/luettform-ablage.png'; // Vorher/Nachher Split
-const imgHoehe = '/images/luettform-ergonomie.png';      // Höhenverstellung Split
-const imgLifestyle = '/images/luettform-verstaut.png';   // Elternteil + Baby
-const imgVerstaut = '/images/luettform-vorher-nachher.png'; // Verstaut + freie Wanne
-const imgAblage = '/images/luettform-hero.png';          // Ablage Detailbild
+const imgHero = '/images/upload-6.png';           // Gesamtansicht schräg oben
+const imgVorherNachher = '/images/upload-5.png'; // Vorher/Nachher Split
+const imgHoehe = '/images/upload-4.png';      // Höhenverstellung Split
+const imgLifestyle = '/images/upload-3.png';   // Elternteil + Baby
+const imgVerstaut = '/images/upload-2.png'; // Verstaut + freie Wanne
+const imgAblage = '/images/upload-1.png';          // Ablage Detailbild
 
 // ---------------------------------------------------------------------------
 // Tracking
