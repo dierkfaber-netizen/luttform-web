@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useForm, ValidationError } from '@formspree/react';
+import { Link, RouterProvider, createBrowserRouter } from 'react-router';
 
 // ---------------------------------------------------------------------------
 // Images
@@ -14,7 +15,7 @@ const imgAblage = '/images/upload-1.png';          // Ablage Detailbild
 // ---------------------------------------------------------------------------
 // Tracking
 // ---------------------------------------------------------------------------
-type TrackingEvent = 'page_view' | 'cta_click' | 'price_cta_click' | 'generate_lead' | 'price_answer';
+type TrackingEvent = 'page_view' | 'cta_click' | 'price_cta_click' | 'buy_cta_click' | 'purchase_interest_page_view' | 'generate_lead' | 'price_answer';
 interface TrackPayload { event: TrackingEvent; [key: string]: unknown; }
 
 function track(payload: TrackPayload) {
@@ -51,14 +52,14 @@ type PriceOption = (typeof PRICE_OPTIONS)[number];
 // ---------------------------------------------------------------------------
 // Shared layout pieces
 // ---------------------------------------------------------------------------
-function SiteHeader({ showCTA, onCTA }: { showCTA?: boolean; onCTA?: (s: string) => void }) {
+function SiteHeader({ showCTA }: { showCTA?: boolean }) {
   return (
     <header className="border-b border-[#eae3db] flex items-center justify-between px-5 md:px-[80px] py-5 md:py-[28px]">
-      <a href="/" className="font-['Instrument_Sans:Bold'] font-bold text-[#2a2827] text-[18px] md:text-[22px] leading-normal whitespace-nowrap"
+      <Link to="/" className="font-['Instrument_Sans:Bold'] font-bold text-[#2a2827] text-[18px] md:text-[22px] leading-normal whitespace-nowrap"
         style={{ fontVariationSettings: '"wdth" 100' }}>
         LÜTTFORM
-      </a>
-      {showCTA && onCTA && <CTAButton label="Vormerken" source="header" onClick={onCTA} />}
+      </Link>
+      {showCTA && <PurchaseCTA label="Jetzt kaufen – 149 €" source="header" />}
     </header>
   );
 }
@@ -339,17 +340,17 @@ function ThankYou({ onClose, utm }: { onClose: () => void; utm: Record<string, s
 // ---------------------------------------------------------------------------
 // CTA Button
 // ---------------------------------------------------------------------------
-function CTAButton({ label = 'Unverbindlich vormerken', fullWidth, source, onClick }: {
-  label?: string; fullWidth?: boolean; source: string; onClick: (s: string) => void;
+function PurchaseCTA({ label = 'Jetzt kaufen – 149 €', fullWidth, source }: {
+  label?: string; fullWidth?: boolean; source: string;
 }) {
   return (
-    <button onClick={() => onClick(source)}
+    <Link to="/kaufen" onClick={() => track({ event: 'buy_cta_click', source, ...getUtmParams() })}
       className={`bg-[#3e4a3f] flex items-center justify-center px-[32px] py-[16px] rounded-[4px] hover:bg-[#2f382f] transition-colors cursor-pointer ${fullWidth ? 'w-full' : ''}`}>
       <span className="font-['Instrument_Sans:SemiBold'] font-semibold text-[#faf8f5] text-[15px] leading-normal whitespace-nowrap"
         style={{ fontVariationSettings: '"wdth" 100' }}>
         {label}
       </span>
-    </button>
+    </Link>
   );
 }
 
@@ -357,26 +358,13 @@ function CTAButton({ label = 'Unverbindlich vormerken', fullWidth, source, onCli
 // Landing page (/)
 // ---------------------------------------------------------------------------
 function LandingPage() {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [thankyouOpen, setThankyouOpen] = useState(false);
   const [utm] = useState(() => getUtmParams());
 
   useEffect(() => { track({ event: 'page_view', ...utm }); }, [utm]);
 
-  const openModal = useCallback((source: string) => {
-    track({ event: source.includes('price') ? 'price_cta_click' : 'cta_click', source, ...utm });
-    setModalOpen(true);
-  }, [utm]);
-
-  const handleSuccess = useCallback(() => { setModalOpen(false); setThankyouOpen(true); }, []);
-  const closeAll = useCallback(() => { setModalOpen(false); setThankyouOpen(false); }, []);
-
   return (
     <div className="bg-[#faf8f5] w-full min-h-screen">
-      {modalOpen && <Modal onClose={closeAll} onSuccess={handleSuccess} utm={utm} />}
-      {thankyouOpen && <ThankYou onClose={closeAll} utm={utm} />}
-
-      <SiteHeader showCTA onCTA={openModal} />
+      <SiteHeader showCTA />
 
       {/* ── Hero ── */}
       <section className="flex flex-col md:flex-row gap-8 md:gap-[64px] items-center px-5 md:px-[80px] py-12 md:py-[80px]">
@@ -411,7 +399,7 @@ function LandingPage() {
               style={{ fontVariationSettings: '"wdth" 100' }}>
               Geplanter Preis: 149 €
             </p>
-            <CTAButton label="Unverbindlich vormerken" source="hero_price" onClick={openModal} fullWidth />
+            <PurchaseCTA source="hero_price" fullWidth />
             <p className="font-['Inter:Regular'] font-normal text-[#aaa49e] text-[12px] leading-normal">
               Noch kein Kauf und keine Zahlung.
             </p>
@@ -584,7 +572,7 @@ function LandingPage() {
             LÜTTFORM zum geplanten Preis von <strong className="text-[#2a2827]">149 €</strong> unverbindlich vormerken.
           </p>
           <div className="flex flex-col gap-2 items-center w-full">
-            <CTAButton label="Unverbindlich vormerken" source="bottom_price" onClick={openModal} fullWidth />
+            <PurchaseCTA source="bottom_price" fullWidth />
             <p className="font-['Inter:Regular'] font-normal text-[#aaa49e] text-[12px]">
               Noch kein Kauf und keine Zahlung. Jederzeit abmeldbar.
             </p>
@@ -598,12 +586,122 @@ function LandingPage() {
 }
 
 // ---------------------------------------------------------------------------
-// Router — pathname-based, no dependency
+// Purchase interest page (/kaufen)
 // ---------------------------------------------------------------------------
-export default function App() {
-  const path = window.location.pathname.replace(/\/$/, '') || '/';
+function PurchaseInterestPage() {
+  const [email, setEmail] = useState('');
+  const [clientError, setClientError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [utm] = useState(() => getUtmParams());
+  const [state, handleFormspreeSubmit] = useForm(FORMSPREE_ID);
 
-  if (path === '/impressum') return <ImpressumPage />;
-  if (path === '/datenschutz') return <DatenschutzPage />;
-  return <LandingPage />;
+  useEffect(() => { track({ event: 'purchase_interest_page_view', ...utm }); }, [utm]);
+  useEffect(() => {
+    if (!state.succeeded) return;
+    track({ event: 'generate_lead', email_domain: email.trim().split('@')[1] ?? '', source: 'purchase_interest_page', ...utm });
+    setSubmitted(true);
+  }, [state.succeeded, email, utm]);
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!isValidEmail(email)) {
+      setClientError('Bitte gib eine gültige E-Mail-Adresse ein.');
+      return;
+    }
+    setClientError('');
+    handleFormspreeSubmit(event, {
+      email: email.trim().toLowerCase(),
+      signed_up_at: new Date().toISOString(),
+      source: 'purchase_interest_page',
+      ...utm,
+      _replyto: email.trim().toLowerCase(),
+    } as any);
+  };
+
+  return (
+    <div className="bg-[#faf8f5] min-h-screen flex flex-col">
+      <SiteHeader />
+      <main className="flex-1 px-5 md:px-[80px] py-12 md:py-[80px]">
+        <div className="max-w-[720px] mx-auto grid gap-8 md:gap-12">
+          <Link to="/" className="font-['Inter:Regular'] text-[#605d5b] text-[13px] hover:text-[#2a2827] transition-colors inline-flex items-center gap-2 w-fit">
+            <span aria-hidden="true">←</span> Zurück zu LÜTTFORM
+          </Link>
+          <section className="border-y border-[#eae3db] py-10 md:py-14">
+            <p className="font-['Instrument_Sans:SemiBold'] font-semibold text-[#605d5b] text-[11px] uppercase tracking-widest mb-4"
+              style={{ fontVariationSettings: '"wdth" 100' }}>
+              Geplanter Preis: 149 €
+            </p>
+            <h1 className="font-['Instrument_Sans:SemiBold'] font-semibold text-[#2a2827] text-[36px] md:text-[52px] leading-[1.08] max-w-[620px]"
+              style={{ fontVariationSettings: '"wdth" 100' }}>
+              LÜTTFORM ist noch in Entwicklung.
+            </h1>
+            <p className="font-['Inter:Regular'] text-[#605d5b] text-[17px] md:text-[19px] leading-[1.65] mt-6 max-w-[640px]">
+              Danke für dein Interesse. Wir prüfen aktuell die Nachfrage, bevor wir mit der Produktion starten. Es findet keine Bestellung und keine Zahlung statt.
+            </p>
+          </section>
+
+          <section className="max-w-[520px]">
+            {submitted ? (
+              <div className="bg-[#f4efea] border border-[#eae3db] rounded-[8px] p-7 md:p-8">
+                <p className="font-['Instrument_Sans:SemiBold'] font-semibold text-[#2a2827] text-[22px] leading-[1.2]" style={{ fontVariationSettings: '"wdth" 100' }}>
+                  Danke, du bist dabei.
+                </p>
+                <p className="font-['Inter:Regular'] text-[#605d5b] text-[15px] leading-[1.6] mt-3">
+                  Wir informieren dich, sobald es Neuigkeiten zum Marktstart gibt.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+                <div>
+                  <h2 className="font-['Instrument_Sans:SemiBold'] font-semibold text-[#2a2827] text-[23px] leading-[1.2]" style={{ fontVariationSettings: '"wdth" 100' }}>
+                    Beim Marktstart informieren
+                  </h2>
+                  <p className="font-['Inter:Regular'] text-[#605d5b] text-[15px] leading-[1.6] mt-2">
+                    Hinterlasse deine E-Mail-Adresse. Keine Bestellung, keine Zahlung – und jederzeit abmeldbar.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="interest-email" className="font-['Instrument_Sans:SemiBold'] font-semibold text-[#2a2827] text-[13px]" style={{ fontVariationSettings: '"wdth" 100' }}>
+                    E-Mail-Adresse
+                  </label>
+                  <input id="interest-email" type="email" name="email" required autoComplete="email" value={email}
+                    onChange={(event) => { setEmail(event.target.value); if (clientError) setClientError(''); }}
+                    onBlur={() => { if (email && !isValidEmail(email)) setClientError('Bitte gib eine gültige E-Mail-Adresse ein.'); }}
+                    placeholder="beispiel@mail.de" aria-invalid={!!clientError}
+                    className={`bg-white border font-['Inter:Regular'] text-[#2a2827] text-[15px] p-[14px] rounded-[4px] w-full outline-none transition-colors placeholder:text-[#aaa49e] ${clientError ? 'border-red-400' : 'border-[#eae3db] focus:border-[#3e4a3f]'}`} />
+                  {clientError && <p role="alert" className="font-['Inter:Regular'] text-red-500 text-[12px]">{clientError}</p>}
+                  <ValidationError field="email" prefix="E-Mail" errors={state.errors} className="font-['Inter:Regular'] text-red-500 text-[12px]" />
+                </div>
+                {state.errors && state.errors.length > 0 && <p role="alert" className="font-['Inter:Regular'] text-red-500 text-[12px]">Ein Fehler ist aufgetreten. Bitte versuche es erneut.</p>}
+                <button type="submit" disabled={state.submitting} className="bg-[#3e4a3f] hover:bg-[#2f382f] text-[#faf8f5] px-[32px] py-[16px] rounded-[4px] transition-colors cursor-pointer disabled:opacity-60 w-full md:w-fit">
+                  <span className="font-['Instrument_Sans:SemiBold'] font-semibold text-[15px]" style={{ fontVariationSettings: '"wdth" 100' }}>
+                    {state.submitting ? 'Wird eingetragen …' : 'Beim Marktstart informieren'}
+                  </span>
+                </button>
+                <p className="font-['Inter:Regular'] text-[#aaa49e] text-[11px] leading-[1.5]">
+                  Mit dem Eintragen stimmst du zu, dass wir dich per E-Mail über die Verfügbarkeit von LÜTTFORM informieren dürfen.{' '}
+                  <Link to="/datenschutz" className="underline hover:text-[#605d5b] transition-colors">Datenschutzerklärung</Link>
+                </p>
+              </form>
+            )}
+          </section>
+        </div>
+      </main>
+      <SiteFooter />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Router
+// ---------------------------------------------------------------------------
+const router = createBrowserRouter([
+  { path: '/', Component: LandingPage },
+  { path: '/kaufen', Component: PurchaseInterestPage },
+  { path: '/impressum', Component: ImpressumPage },
+  { path: '/datenschutz', Component: DatenschutzPage },
+]);
+
+export default function App() {
+  return <RouterProvider router={router} />;
 }
