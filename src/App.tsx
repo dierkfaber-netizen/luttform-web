@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useForm, ValidationError } from '@formspree/react';
-import { Link, RouterProvider, createBrowserRouter } from 'react-router';
+import { Link, RouterProvider, createBrowserRouter, useNavigate } from 'react-router';
 
 // ---------------------------------------------------------------------------
 // Images
@@ -15,7 +15,7 @@ const imgAblage = '/images/upload-1.png';          // Ablage Detailbild
 // ---------------------------------------------------------------------------
 // Tracking
 // ---------------------------------------------------------------------------
-type TrackingEvent = 'page_view' | 'cta_click' | 'price_cta_click' | 'buy_cta_click' | 'purchase_interest_page_view' | 'generate_lead' | 'price_answer';
+type TrackingEvent = 'page_view' | 'cta_click' | 'price_cta_click' | 'buy_cta_click' | 'purchase_intent' | 'purchase_interest_page_view' | 'generate_lead' | 'price_answer';
 interface TrackPayload { event: TrackingEvent; [key: string]: unknown; }
 
 function track(payload: TrackPayload) {
@@ -36,6 +36,21 @@ function getUtmParams(): Record<string, string> {
     ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content']
       .flatMap((k) => (p.has(k) ? [[k, p.get(k)!]] : []))
   );
+}
+
+function getPurchaseIntentPayload() {
+  const params = new URLSearchParams(window.location.search);
+  const device = params.get('device');
+
+  return {
+    event: 'purchase_intent' as const,
+    timestamp: new Date().toISOString(),
+    utm_source: params.get('utm_source') ?? '',
+    utm_medium: params.get('utm_medium') ?? '',
+    utm_campaign: params.get('utm_campaign') ?? '',
+    utm_term: params.get('utm_term') ?? '',
+    ...(device ? { device } : {}),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -343,8 +358,28 @@ function ThankYou({ onClose, utm }: { onClose: () => void; utm: Record<string, s
 function PurchaseCTA({ label = 'Jetzt kaufen – 149 €', fullWidth, source }: {
   label?: string; fullWidth?: boolean; source: string;
 }) {
+  const navigate = useNavigate();
+
+  const handleClick = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    const purchaseIntent = getPurchaseIntentPayload();
+    track({ ...purchaseIntent, source });
+
+    try {
+      await fetch(`https://formspree.io/f/${FORMSPREE_ID}`, {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(purchaseIntent),
+      });
+    } catch {
+      // The product-development page must remain reachable even if tracking is unavailable.
+    } finally {
+      navigate('/kaufen');
+    }
+  };
+
   return (
-    <Link to="/kaufen" onClick={() => track({ event: 'buy_cta_click', source, ...getUtmParams() })}
+    <Link to="/kaufen" onClick={handleClick}
       className={`bg-[#3e4a3f] flex items-center justify-center px-[32px] py-[16px] rounded-[4px] hover:bg-[#2f382f] transition-colors cursor-pointer ${fullWidth ? 'w-full' : ''}`}>
       <span className="font-['Instrument_Sans:SemiBold'] font-semibold text-[#faf8f5] text-[15px] leading-normal whitespace-nowrap"
         style={{ fontVariationSettings: '"wdth" 100' }}>
